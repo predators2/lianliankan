@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏结束 - 海洋药物连连看</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a202c 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .ocean-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('resources/ocean-background.png');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.2;
+            z-index: -1;
+        }
+        
+        .result-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        
+        .score-number {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #38b2ac, #ed8936, #f6ad55);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(56, 178, 172, 0.3);
+        }
+        
+        .achievement-badge {
+            background: linear-gradient(45deg, #f6ad55, #ed8936);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 0.25rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .stat-item {
+            background: rgba(56, 178, 172, 0.1);
+            border-radius: 15px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            background: rgba(56, 178, 172, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #38b2ac, #319795);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(56, 178, 172, 0.4);
+        }
+        
+        .restart-btn {
+            background: linear-gradient(45deg, #ed8936, #f6ad55);
+        }
+        
+        .restart-btn:hover {
+            box-shadow: 0 10px 20px rgba(237, 137, 54, 0.4);
+        }
+        
+        .home-btn {
+            background: linear-gradient(45deg, #805ad5, #9f7aea);
+        }
+        
+        .home-btn:hover {
+            box-shadow: 0 10px 20px rgba(128, 90, 213, 0.4);
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .floating-element {
+            position: absolute;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #38b2ac;
+            animation: confetti-fall 3s linear infinite;
+        }
+        
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .title-gradient {
+            background: linear-gradient(45deg, #38b2ac, #ed8936, #f6ad55);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(56, 178, 172, 0.3);
+        }
+        
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.8s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- 海洋背景 -->
+    <div class="ocean-bg"></div>
+    
+    <!-- 浮动装饰元素 -->
+    <div class="floating-element text-6xl" style="top: 10%; left: 10%; animation-delay: 0s;">🌊</div>
+    <div class="floating-element text-4xl" style="top: 20%; right: 15%; animation-delay: 1s;">🐠</div>
+    <div class="floating-element text-5xl" style="bottom: 20%; left: 20%; animation-delay: 2s;">🐙</div>
+    <div class="floating-element text-3xl" style="bottom: 30%; right: 10%; animation-delay: 3s;">🦀</div>
+    
+    <!-- 主要内容 -->
+    <div class="min-h-screen flex items-center justify-center p-4 relative z-10">
+        <div class="max-w-4xl mx-auto">
+            <!-- 结果卡片 -->
+            <div class="result-card" id="resultCard">
+                <!-- 标题区域 -->
+                <div class="text-center mb-8">
+                    <h1 class="text-5xl font-bold title-gradient font-['ZCOOL_KuaiLe'] mb-4">
+                        游戏结束
+                    </h1>
+                    <p class="text-xl text-gray-600">恭喜完成海洋药物探索之旅！</p>
+                </div>
+                
+                <!-- 最终得分 -->
+                <div class="text-center mb-8">
+                    <div class="score-number" id="finalScore">0</div>
+                    <p class="text-lg text-gray-600 mt-2">最终得分</p>
+                </div>
+                
+                <!-- 成就徽章 -->
+                <div class="text-center mb-8" id="achievementContainer">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">获得成就</h3>
+                    <div id="achievements"></div>
+                </div>
+                
+                <!-- 游戏统计 -->
+                <div class="grid md:grid-cols-4 gap-4 mb-8">
+                    <div class="stat-item">
+                        <div class="text-2xl font-bold text-teal-600" id="finalLevel">1</div>
+                        <div class="text-sm text-gray-600">达成关卡</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="text-2xl font-bold text-orange-600" id="timeUsed">0</div>
+                        <div class="text-sm text-gray-600">用时(秒)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="text-2xl font-bold text-purple-600" id="accuracy">0%</div>
+                        <div class="text-sm text-gray-600">准确率</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="text-2xl font-bold text-green-600" id="maxCombo">0</div>
+                        <div class="text-sm text-gray-600">最高连击</div>
+                    </div>
+                </div>
+                
+                <!-- 数据图表 -->
+                <div class="chart-container mb-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">游戏数据分析</h3>
+                    <div id="performanceChart" style="width: 100%; height: 300px;"></div>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="text-center">
+                    <button class="control-btn restart-btn" onclick="restartGame()">
+                        🔄 再玩一次
+                    </button>
+                    <button class="control-btn home-btn" onclick="backToHome()">
+                        🏠 返回主页
+                    </button>
+                    <button class="control-btn" onclick="shareResult()">
+                        📤 分享成绩
+                    </button>
+                </div>
+                
+                <!-- 游戏回顾 -->
+                <div class="mt-8 p-6 bg-gray-50 rounded-2xl">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">游戏回顾</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-3">学到的海洋药物知识</h4>
+                            <ul class="space-y-2 text-sm text-gray-600" id="knowledgeList">
+                                <li>• 河豚毒素 - 来自河豚鱼卵巢的神经镇痛药物</li>
+                                <li>• 石房蛤毒素 - 赤潮藻类产生的抗癌研究药物</li>
+                                <li>• 沙海葵毒素 - 海葵提取的抗肿瘤药物</li>
+                                <li>• 头孢菌素C - 海洋真菌产生的抗菌药物</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-3">游戏技巧总结</h4>
+                            <ul class="space-y-2 text-sm text-gray-600" id="tipsList">
+                                <li>• 先记住药物名称，再寻找相关信息</li>
+                                <li>• 注意观察卡片类型的分布规律</li>
+                                <li>• 合理使用提示功能提高效率</li>
+                                <li>• 保持连击可以获得更高分数</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 游戏结果数据
+        let gameResult = {
+            score: 0,
+            level: 1,
+            timeUsed: 0,
+            accuracy: 0,
+            maxCombo: 0,
+            date: new Date().toISOString()
+        };
+        
+        // 成就定义
+        const ACHIEVEMENTS = [
+            { id: 'first_win', name: '初次探索', condition: (result) => result.score > 0, icon: '🏆' },
+            { id: 'high_score', name: '高分达人', condition: (result) => result.score >= 1000, icon: '⭐' },
+            { id: 'speed_demon', name: '速度之王', condition: (result) => result.timeUsed <= 120, icon: '⚡' },
+            { id: 'accuracy_master', name: '精准大师', condition: (result) => result.accuracy >= 90, icon: '🎯' },
+            { id: 'combo_king', name: '连击之王', condition: (result) => result.maxCombo >= 5, icon: '🔥' },
+            { id: 'level_master', name: '关卡大师', condition: (result) => result.level >= 3, icon: '🌟' }
+        ];
+        
+        // 初始化页面
+        function initEndPage() {
+            // 从本地存储获取游戏结果
+            const savedResult = localStorage.getItem('gameResult');
+            if (savedResult) {
+                gameResult = JSON.parse(savedResult);
+            }
+            
+            // 更新显示
+            updateResultDisplay();
+            
+            // 检查成就
+            checkAchievements();
+            
+            // 创建图表
+            createPerformanceChart();
+            
+            // 添加动画效果
+            addAnimations();
+            
+            // 创建庆祝效果
+            createCelebrationEffect();
+        }
+        
+        // 更新结果显示
+        function updateResultDisplay() {
+            // 动画显示最终得分
+            animateNumber('finalScore', 0, gameResult.score, 2000);
+            
+            // 更新其他统计数据
+            document.getElementById('finalLevel').textContent = gameResult.level;
+            document.getElementById('timeUsed').textContent = gameResult.timeUsed;
+            document.getElementById('accuracy').textContent = gameResult.accuracy + '%';
+            document.getElementById('maxCombo').textContent = gameResult.maxCombo;
+        }
+        
+        // 数字动画
+        function animateNumber(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = Date.now();
+            
+            function updateNumber() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+                
+                element.textContent = current;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateNumber);
+                }
+            }
+            
+            updateNumber();
+        }
+        
+        // 检查成就
+        function checkAchievements() {
+            const achievementsContainer = document.getElementById('achievements');
+            const earnedAchievements = ACHIEVEMENTS.filter(achievement => 
+                achievement.condition(gameResult)
+            );
+            
+            if (earnedAchievements.length === 0) {
+                achievementsContainer.innerHTML = '<p class="text-gray-500">继续努力，下次一定能获得成就！</p>';
+                return;
+            }
+            
+            earnedAchievements.forEach((achievement, index) => {
+                const badge = document.createElement('div');
+                badge.className = 'achievement-badge';
+                badge.innerHTML = `${achievement.icon} ${achievement.name}`;
+                badge.style.animationDelay = `${index * 0.2}s`;
+                achievementsContainer.appendChild(badge);
+            });
+            
+            // 保存成就到本地存储
+            const savedAchievements = JSON.parse(localStorage.getItem('achievements') || '[]');
+            earnedAchievements.forEach(achievement => {
+                if (!savedAchievements.includes(achievement.id)) {
+                    savedAchievements.push(achievement.id);
+                }
+            });
+            localStorage.setItem('achievements', JSON.stringify(savedAchievements));
+        }
+        
+        // 创建性能图表
+        function createPerformanceChart() {
+            const chartDom = document.getElementById('performanceChart');
+            const myChart = echarts.init(chartDom);
+            
+            // 生成模拟的历史游戏数据
+            const historicalData = generateHistoricalData();
+            
+            const option = {
+                title: {
+                    text: '游戏表现趋势',
+                    left: 'center',
+                    textStyle: {
+                        color: '#2d3748',
+                        fontSize: 16,
+                        fontWeight: 'bold'
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['得分', '关卡', '准确率'],
+                    bottom: 10
+                },
+                xAxis: {
+                    type: 'category',
+                    data: historicalData.dates,
+                    axisLabel: {
+                        color: '#718096'
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '得分/关卡',
+                        position: 'left',
+                        axisLabel: {
+                            color: '#718096'
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: '准确率(%)',
+                        position: 'right',
+                        axisLabel: {
+                            color: '#718096'
+                        }
+                    }
+                ],
+                series: [
+                    {
+                        name: '得分',
+                        type: 'line',
+                        data: historicalData.scores,
+                        smooth: true,
+                        lineStyle: {
+                            color: '#38b2ac',
+                            width: 3
+                        },
+                        itemStyle: {
+                            color: '#38b2ac'
+                        },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0,
+                                y: 0,
+                                x2: 0,
+                                y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(56, 178, 172, 0.3)' },
+                                    { offset: 1, color: 'rgba(56, 178, 172, 0.1)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: '关卡',
+                        type: 'line',
+                        data: historicalData.levels,
+                        smooth: true,
+                        lineStyle: {
+                            color: '#ed8936',
+                            width: 3
+                        },
+                        itemStyle: {
+                            color: '#ed8936'
+                        }
+                    },
+                    {
+                        name: '准确率',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: historicalData.accuracies,
+                        smooth: true,
+                        lineStyle: {
+                            color: '#805ad5',
+                            width: 3
+                        },
+                        itemStyle: {
+                            color: '#805ad5'
+                        }
+                    }
+                ],
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    containLabel: true
+                }
+            };
+            
+            myChart.setOption(option);
+            
+            // 响应式调整
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
+        }
+        
+        // 生成历史数据
+        function generateHistoricalData() {
+            const dates = [];
+            const scores = [];
+            const levels = [];
+            const accuracies = [];
+            
+            // 获取历史游戏记录
+            const history = JSON.parse(localStorage.getItem('gameHistory') || '[]');
+            history.push(gameResult); // 添加当前结果
+            
+            // 只保留最近7次记录
+            const recentHistory = history.slice(-7);
+            
+            recentHistory.forEach(result => {
+                const date = new Date(result.date);
+                dates.push(`${date.getMonth() + 1}/${date.getDate()}`);
+                scores.push(result.score);
+                levels.push(result.level);
+                accuracies.push(result.accuracy);
+            });
+            
+            // 保存更新后的历史记录
+            localStorage.setItem('gameHistory', JSON.stringify(history));
+            
+            return { dates, scores, levels, accuracies };
+        }
+        
+        // 添加动画效果
+        function addAnimations() {
+            const resultCard = document.getElementById('resultCard');
+            
+            // 卡片进入动画
+            anime({
+                targets: resultCard,
+                translateY: [50, 0],
+                opacity: [0, 1],
+                duration: 1000,
+                easing: 'easeOutExpo',
+                delay: 300
+            });
+            
+            // 统计项目动画
+            anime({
+                targets: '.stat-item',
+                translateY: [30, 0],
+                opacity: [0, 1],
+                duration: 800,
+                easing: 'easeOutExpo',
+                delay: anime.stagger(100, { start: 800 })
+            });
+            
+            // 按钮动画
+            anime({
+                targets: '.control-btn',
+                scale: [0.8, 1],
+                opacity: [0, 1],
+                duration: 600,
+                easing: 'easeOutBack',
+                delay: anime.stagger(100, { start: 1200 })
+            });
+        }
+        
+        // 创建庆祝效果
+        function createCelebrationEffect() {
+            const colors = ['#38b2ac', '#ed8936', '#f6ad55', '#805ad5', '#9f7aea'];
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                
+                document.body.appendChild(confetti);
+                
+                // 3秒后移除元素
+                setTimeout(() => {
+                    if (confetti.parentNode) {
+                        confetti.parentNode.removeChild(confetti);
+                    }
+                }, 5000);
+            }
+        }
+        
+        // 重新开始游戏
+        function restartGame() {
+            // 添加点击动画
+            anime({
+                targets: event.target,
+                scale: [1, 0.9, 1],
+                duration: 200,
+                complete: () => {
+                    window.location.href = 'game.html';
+                }
+            });
+        }
+        
+        // 返回主页
+        function backToHome() {
+            anime({
+                targets: event.target,
+                scale: [1, 0.9, 1],
+                duration: 200,
+                complete: () => {
+                    window.location.href = 'index.html';
+                }
+            });
+        }
+        
+        // 分享结果
+        function shareResult() {
+            const shareText = `我在海洋药物连连看中获得了${gameResult.score}分！快来挑战我的记录吧！`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: '海洋药物连连看 - 游戏成绩',
+                    text: shareText,
+                    url: window.location.origin
+                }).catch(console.error);
+            } else {
+                // 复制到剪贴板
+                navigator.clipboard.writeText(shareText + ' ' + window.location.origin).then(() => {
+                    alert('成绩已复制到剪贴板！');
+                }).catch(() => {
+                    alert('分享失败，请手动复制。');
+                });
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initEndPage();
+        });
+    </script>
+</body>
+</html>
